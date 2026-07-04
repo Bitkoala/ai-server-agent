@@ -473,9 +473,150 @@ async function saveSettings(){
 function getVal(id){return document.getElementById('f_'+id)?.value||''}
 
 // ============ 初始化 ============
-checkAuth();
-loadHistory();
-addMessageHTML('agent','👋 你好！我是 AI Server Agent。<br>用自然语言管理你的服务器：<br>• 查看系统状态<br>• 部署应用<br>• 管理容器<br>• 配置 SSL 证书');
+async function initApp(){
+  await checkAuth();
+  loadHistory();
+  addMessageHTML('agent','👋 你好！我是 AI Server Agent。<br>用自然语言管理你的服务器：<br>• 查看系统状态<br>• 部署应用<br>• 管理容器<br>• 配置 SSL 证书');
+
+  // 检查配置状态：如果 LLM/1Panel 未配置，弹出引导
+  try{
+    const r=await authFetch('/api/settings');
+    const cfg=await r.json();
+    const needSetup = checkConfigNeedsSetup(cfg);
+    if(needSetup){showConfigWizard(cfg)}
+  }catch(e){}
+}
+
+function checkConfigNeedsSetup(cfg){
+  const llm=cfg.llm||{},op=cfg.onepanel||{};
+  const isDefault=v=>!v||v==='your-api-key'||v==='your-1panel-api-key'||v.startsWith('your-');
+  return isDefault(llm.api_key) || isDefault(op.api_key);
+}
+
+function showConfigWizard(cfg){
+  const llm=cfg.llm||{},op=cfg.onepanel||{};
+
+  const html='<div class="login-overlay" id="configWizard" style="display:flex" role="dialog" aria-label="配置向导">'+
+    '<div class="login-card" style="width:480px;max-height:90vh;overflow-y:auto">'+
+    '<h2>⚙️ 初次配置向导</h2>'+
+    '<div style="font-size:12px;color:#94a3b8;text-align:center;margin-bottom:20px">完成以下配置后即可使用 AI Server Agent</div>'+
+
+    '<div style="margin-bottom:18px;text-align:left">'+
+    '<div style="font-size:13px;color:#93c5fd;font-weight:600;margin-bottom:8px">🔌 1Panel 连接</div>'+
+    '<label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">1Panel 地址</label>'+
+    '<input type="text" id="w_onepanel_url" value="'+escapeHtml(op.base_url||'http://localhost:9999')+'" placeholder="http://你的IP:9999" style="margin-bottom:8px">'+
+    '<label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">API Key <span style="color:#ef4444">*必填</span></label>'+
+    '<input type="password" id="w_onepanel_key" value="'+escapeHtml(op.api_key==='your-1panel-api-key'?'':(op.api_key||''))+'" placeholder="在 1Panel → 面板设置 → API 接口 中获取">'+
+    '<div style="font-size:10px;color:#64748b;margin-top:2px">1Panel 右上角头像 → 面板设置 → API 接口 → 复制 Key</div>'+
+    '</div>'+
+
+    '<div style="margin-bottom:18px;text-align:left">'+
+    '<div style="font-size:13px;color:#93c5fd;font-weight:600;margin-bottom:8px">🧠 LLM 模型</div>'+
+    '<label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">提供商</label>'+
+    '<select id="w_llm_provider" style="margin-bottom:8px" onchange="toggleLLMFields()">'+
+    '<option value="openai"'+(llm.provider==='openai'?' selected':'')+'>OpenAI / 兼容接口</option>'+
+    '<option value="ollama"'+(llm.provider==='ollama'?' selected':'')+'>Ollama (本地模型)</option>'+
+    '</select>'+
+    '<div id="w_llm_openai_fields">'+
+    '<label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">API Key <span style="color:#ef4444">*必填</span></label>'+
+    '<input type="password" id="w_llm_key" value="'+escapeHtml(llm.api_key==='your-api-key'?'':(llm.api_key||''))+'" placeholder="sk-xxxxxxxx" style="margin-bottom:8px">'+
+    '<label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">API 地址</label>'+
+    '<input type="text" id="w_llm_url" value="'+escapeHtml(llm.base_url||'https://api.openai.com/v1')+'" style="margin-bottom:8px">'+
+    '<label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">模型</label>'+
+    '<input type="text" id="w_llm_model" value="'+escapeHtml(llm.model||'gpt-4o-mini')+'">'+
+    '</div>'+
+    '<div id="w_llm_ollama_fields" style="display:none">'+
+    '<label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">Ollama 地址</label>'+
+    '<input type="text" id="w_ollama_url" value="'+escapeHtml(llm.base_url||'http://localhost:11434')+'" style="margin-bottom:8px">'+
+    '<label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">模型名称</label>'+
+    '<input type="text" id="w_ollama_model" value="'+escapeHtml(llm.model||'qwen2.5:7b')+'">'+
+    '</div>'+
+    '</div>'+
+
+    '<div style="margin-bottom:18px;text-align:left">'+
+    '<div style="font-size:13px;color:#93c5fd;font-weight:600;margin-bottom:8px">🔐 管理员账号</div>'+
+    '<label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">用户名</label>'+
+    '<input type="text" id="w_admin_user" value="admin" style="margin-bottom:8px">'+
+    '<label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">密码 (至少6位)</label>'+
+    '<input type="password" id="w_admin_pass" placeholder="设置管理员密码" style="margin-bottom:8px">'+
+    '<label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">确认密码</label>'+
+    '<input type="password" id="w_admin_pass2" placeholder="再次输入密码">'+
+    '</div>'+
+
+    '<div class="error" id="wizardError" role="alert"></div>'+
+    '<button onclick="submitWizard()" style="width:100%;background:#22c55e;color:#fff;border:none;border-radius:8px;padding:13px;cursor:pointer;font-size:14px;font-weight:600">✅ 完成配置</button>'+
+    '<button onclick="closeWizard()" style="width:100%;background:transparent;color:#64748b;border:1px solid #334155;border-radius:8px;padding:10px;cursor:pointer;font-size:12px;margin-top:8px">跳过，稍后设置</button>'+
+    '</div></div>';
+
+  const wrapper=document.createElement('div');
+  wrapper.innerHTML=html;
+  document.body.appendChild(wrapper.firstElementChild);
+  // 初始化 Ollama 字段显示
+  if(llm.provider==='ollama'){document.getElementById('w_llm_openai_fields').style.display='none';document.getElementById('w_llm_ollama_fields').style.display='block'}
+}
+
+function toggleLLMFields(){
+  const p=document.getElementById('w_llm_provider').value;
+  document.getElementById('w_llm_openai_fields').style.display=p==='ollama'?'none':'block';
+  document.getElementById('w_llm_ollama_fields').style.display=p==='ollama'?'block':'none';
+}
+
+function closeWizard(){
+  const w=document.getElementById('configWizard');
+  if(w)w.remove();
+}
+
+async function submitWizard(){
+  const errEl=document.getElementById('wizardError');
+  errEl.textContent='';
+
+  // 验证必填
+  const opKey=document.getElementById('w_onepanel_key').value.trim();
+  if(!opKey){errEl.textContent='请填写 1Panel API Key';return}
+
+  const provider=document.getElementById('w_llm_provider').value;
+  let llmKey='',llmUrl='',llmModel='';
+  if(provider==='ollama'){
+    llmUrl=document.getElementById('w_ollama_url').value.trim()||'http://localhost:11434';
+    llmModel=document.getElementById('w_ollama_model').value.trim()||'qwen2.5:7b';
+  }else{
+    llmKey=document.getElementById('w_llm_key').value.trim();
+    if(!llmKey){errEl.textContent='请填写 LLM API Key';return}
+    llmUrl=document.getElementById('w_llm_url').value.trim()||'https://api.openai.com/v1';
+    llmModel=document.getElementById('w_llm_model').value.trim()||'gpt-4o-mini';
+  }
+
+  const adminUser=document.getElementById('w_admin_user').value.trim()||'admin';
+  const adminPass=document.getElementById('w_admin_pass').value.trim();
+  const adminPass2=document.getElementById('w_admin_pass2').value.trim();
+  if(adminPass && adminPass.length<6){errEl.textContent='管理员密码至少6位';return}
+  if(adminPass && adminPass!==adminPass2){errEl.textContent='两次密码不一致';return}
+
+  // 保存配置
+  const updates={
+    onepanel:{base_url:document.getElementById('w_onepanel_url').value.trim()||'http://localhost:9999',api_key:opKey},
+    llm:{provider:provider,api_key:llmKey,base_url:llmUrl,model:llmModel}
+  };
+
+  try{
+    const r=await authFetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(updates)});
+    if(!r.ok){const d=await r.json();errEl.textContent=d.error||'保存失败';return}
+  }catch(e){errEl.textContent='保存配置失败: '+e.message;return}
+
+  // 设置管理员密码
+  if(adminPass){
+    try{
+      const r=await fetch('/api/auth/setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:adminUser,password:adminPass})});
+      if(r.ok){const d=await r.json();authToken=d.token;loggedInUser=d.username;hideLogin();updateUserDisplay()}
+    }catch(e){}
+  }
+
+  closeWizard();
+  addMessage('system','✅ 配置已保存！请重启服务使配置生效。');
+  addMessage('system','💡 提示：在终端按 Ctrl+C 停止，重新运行 ./agent 即可。');
+}
+
+initApp();
 </script>
 </body>
 </html>
