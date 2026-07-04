@@ -3,6 +3,8 @@ package storage
 import (
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -21,7 +23,13 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 		dbPath = "data/agent.db"
 	}
 
-	db, err := sql.Open("sqlite", dbPath+"?_journal_mode=WAL&_foreign_keys=on")
+	// 确保目录存在
+	dir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, fmt.Errorf("创建数据目录失败: %w", err)
+	}
+
+	db, err := sql.Open("sqlite", dbPath+"?_journal_mode=DELETE&_foreign_keys=on&_cache_size=-2000&_synchronous=NORMAL")
 	if err != nil {
 		return nil, fmt.Errorf("打开数据库失败: %w", err)
 	}
