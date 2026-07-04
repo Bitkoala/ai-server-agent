@@ -1,0 +1,15 @@
+# 二进制
+bin/
+*.exe
+
+# 数据库
+data/
+
+# IDE
+.idea/
+.vscode/
+
+# 临时文件
+*.swp
+*.swo
+.DS_Store

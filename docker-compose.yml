@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  # AI Server Agent
+  agent:
+    build: .
+    container_name: ai-server-agent
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./configs:/app/configs:ro
+      - agent_data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock  # 如需管理本机 Docker
+    environment:
+      - TZ=Asia/Shanghai
+    restart: unless-stopped
+    networks:
+      - agent-net
+    healthcheck:
+      test: ["CMD", "/app/agent", "-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # 1Panel（可选，如果本机没有安装）
+  # onepanel:
+  #   image: ghcr.io/1panel-dev/1panel:latest
+  #   container_name: onepanel
+  #   ports:
+  #     - "9999:9999"
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - onepanel_data:/opt
+  #   restart: unless-stopped
+  #   networks:
+  #     - agent-net
+
+volumes:
+  agent_data:
+  # onepanel_data:
+
+networks:
+  agent-net:
+    driver: bridge

@@ -1,0 +1,41 @@
+server:
+  port: 9090
+  host: "0.0.0.0"
+
+onepanel:
+  base_url: "http://localhost:9999"
+  api_key: "your-1panel-api-key"
+  timeout: 30
+
+llm:
+  provider: "openai"
+  api_key: "your-api-key"
+  base_url: "https://api.openai.com/v1"
+  model: "gpt-4o-mini"
+
+security:
+  dangerous_ops_require_confirm: true
+  rate_limit_per_minute: 30
+  allowed_users: ["*"]
+
+storage:
+  db_path: "data/agent.db"
+
+# 通知配置（可选）
+notify:
+  feishu_webhook: ""          # 飞书 Webhook URL
+  dingtalk_webhook: ""        # 钉钉 Webhook URL
+  wecom_webhook: ""           # 企业微信 Webhook URL
+  telegram_bot_token: ""      # Telegram Bot Token
+  telegram_chat_id: ""        # Telegram Chat ID
+  min_level: "warning"        # 最低通知级别: info / warning / error
+
+# Web 认证配置
+auth:
+  enabled: false              # 是否启用 Web 认证（设为 true 开启）
+  jwt_secret: ""              # JWT 签名密钥（留空自动生成随机密钥）
+  token_expiry_hours: 24      # Token 过期时间（小时）
+  users:                      # 用户列表（密码明文，首次启动自动哈希）
+    - username: "admin"
+      password: "admin123"
+      role: "admin"

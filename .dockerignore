@@ -1,0 +1,40 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+dist/
+bin/
+
+# Data
+data/
+*.db
+*.db-journal
+*.db-wal
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# CI/CD
+.github/
+
+# Documentation
+*.md
+docs/
+
+# Test files
+*_test.go

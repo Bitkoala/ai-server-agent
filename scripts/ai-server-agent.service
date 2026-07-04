@@ -1,0 +1,38 @@
+[Unit]
+Description=AI Server Agent - 智能服务器管理助理
+Documentation=https://github.com/ai-server-agent
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/ai-server-agent
+ExecStart=/opt/ai-server-agent/bin/agent -config /opt/ai-server-agent/configs/config.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# 安全加固
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/ai-server-agent/data
+ReadOnlyPaths=/opt/ai-server-agent/configs
+
+# 资源限制
+MemoryLimit=256M
+CPUQuota=50%
+TasksMax=100
+
+# 日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-server-agent
+
+[Install]
+WantedBy=multi-user.target
